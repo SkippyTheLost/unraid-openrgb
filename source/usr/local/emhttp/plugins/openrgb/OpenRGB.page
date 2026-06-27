@@ -1,0 +1,94 @@
+Menu="Utilities"
+Title="OpenRGB"
+Icon="openrgb.webp"
+---
+<?php
+$cfg = parse_plugin_cfg('openrgb');
+$enabled = $cfg['ENABLED'] ?? 'no';
+$port = $cfg['SERVER_PORT'] ?? '6742';
+$args = $cfg['EXTRA_ARGS'] ?? '--server';
+$i2c = $cfg['ENABLE_I2C'] ?? 'yes';
+$control = '/usr/local/emhttp/plugins/openrgb/scripts/openrgbctl';
+$status = trim((string) shell_exec(escapeshellarg($control).' status 2>&1'));
+$version = trim((string) @file_get_contents('/usr/local/emhttp/plugins/openrgb/VERSION'));
+?>
+
+<div style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
+  <img src="/plugins/openrgb/images/openrgb.webp" alt="OpenRGB" style="height:48px;width:auto">
+  <div>
+    <h2 style="margin:0">OpenRGB</h2>
+    <p style="margin:4px 0 0">Plugin version <?=htmlspecialchars($version)?>. Status: <strong id="openrgbStatus"><?=htmlspecialchars($status)?></strong></p>
+  </div>
+</div>
+
+<form id="openrgbSettings" name="openrgb_settings" onsubmit="return false">
+<table class="settings">
+  <tr>
+    <td>Enable OpenRGB server:</td>
+    <td>
+      <select name="ENABLED">
+        <?=mk_option($enabled, 'yes', 'Yes')?>
+        <?=mk_option($enabled, 'no', 'No')?>
+      </select>
+    </td>
+  </tr>
+  <tr>
+    <td>Server port:</td>
+    <td><input type="number" name="SERVER_PORT" min="1" max="65535" value="<?=htmlspecialchars($port, ENT_QUOTES)?>"></td>
+  </tr>
+  <tr>
+    <td>Extra arguments:</td>
+    <td><input type="text" name="EXTRA_ARGS" value="<?=htmlspecialchars($args, ENT_QUOTES)?>" placeholder="--server"></td>
+  </tr>
+  <tr>
+    <td>Enable I2C devices:</td>
+    <td>
+      <select name="ENABLE_I2C">
+        <?=mk_option($i2c, 'yes', 'Yes')?>
+        <?=mk_option($i2c, 'no', 'No')?>
+      </select>
+    </td>
+  </tr>
+</table>
+
+<div style="text-align:right">
+  <input type="button" value="Apply" onclick="saveOpenRGB()">
+  <input type="button" value="Start" onclick="runOpenRGB('start')">
+  <input type="button" value="Stop" onclick="runOpenRGB('stop')">
+  <input type="button" value="Restart" onclick="runOpenRGB('restart')">
+  <input type="button" value="Refresh status" onclick="runOpenRGB('status')">
+  <input type="button" value="Done" onclick="done()">
+</div>
+</form>
+
+<h3>Output</h3>
+<pre id="openrgbOutput" style="white-space:pre-wrap">Ready.</pre>
+
+<script>
+function openrgbRequest(data) {
+  const output = $('#openrgbOutput');
+  output.text('Running OpenRGB action...');
+  $.post('/plugins/openrgb/include/execute.php', data)
+    .done(function(response) {
+      output.text(response);
+      if (data.action === 'status') {
+        $('#openrgbStatus').text(response.trim());
+      }
+    })
+    .fail(function(xhr) { output.text(xhr.responseText || 'OpenRGB action failed.'); });
+}
+
+function saveOpenRGB() {
+  openrgbRequest({
+    action: 'save',
+    ENABLED: $('[name="ENABLED"]').val(),
+    SERVER_PORT: $('[name="SERVER_PORT"]').val(),
+    EXTRA_ARGS: $('[name="EXTRA_ARGS"]').val(),
+    ENABLE_I2C: $('[name="ENABLE_I2C"]').val()
+  });
+}
+
+function runOpenRGB(action) {
+  openrgbRequest({action: action});
+}
+</script>

@@ -1,13 +1,26 @@
 <?xml version="1.0" standalone="yes"?>
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "openrgb">
-<!ENTITY author    "Codex">
-<!ENTITY version   "2026.06.25.4">
-<!ENTITY pluginURL "https://raw.githubusercontent.com/YOUR_GITHUB_USER/unraid-openrgb/main/openrgb.plg">
+<!ENTITY author    "SkippyTheLost">
+<!ENTITY version   "2026.06.28.6">
+<!ENTITY launch    "Settings/OpenRGB">
+<!ENTITY pluginURL "https://github.com/SkippyTheLost/unraid-openrgb/releases/latest/download/&name;.plg">
+<!ENTITY bundle    "&name;-&version;.tgz">
 ]>
-<PLUGIN name="&name;" author="&author;" version="&version;" pluginURL="&pluginURL;" icon="https://openrgb.org/OpenRGB%20White.d0101f04.webp" support="https://openrgb.org/">
+
+<PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;" pluginURL="&pluginURL;" icon="https://openrgb.org/OpenRGB%20White.d0101f04.webp" support="https://github.com/SkippyTheLost/unraid-openrgb/issues">
 
 <CHANGES>
+### 2026.06.28.6
+- Install OpenRGB and the plugin web files from a versioned release bundle.
+- Package the extracted OpenRGB runtime so Unraid does not need FUSE or AppImage extraction.
+- Add local bundle scripts and an automated tagged GitHub release workflow.
+
+### 2026.06.28.5
+- Register OpenRGB under Settings / User Utilities using Unraid's native page conventions.
+- Move web actions to a dedicated endpoint and use the Unraid started event for autostart.
+- Make manual Start independent of the autostart setting and improve service diagnostics.
+
 ### 2026.06.25.4
 - Copy cached AppImage from /boot to /usr/local before extraction to support noexec boot mounts.
 
@@ -16,446 +29,80 @@
 - Fix extracted runtime install path and surface extraction errors in the webGUI output.
 
 ### 2026.06.25.2
-- Force webGUI refresh with version 2026.06.25.2.
 - Install OpenRGB during plugin install and remove AppImage URL from settings.
 - Restore standalone settings route at /Settings/OpenRGB.
 
 ### 2026.06.25
 - Initial OpenRGB Unraid plugin.
-- Adds a Settings page, persistent config, install/update action, and rc service.
-- Places settings on /Settings/OpenRGB and uses the official OpenRGB logo.
-- Defaults to OpenRGB 1.0rc2 x86_64 AppImage.
-- Runs OpenRGB in server mode with optional i2c device setup.
 </CHANGES>
 
-<FILE Name="/tmp/openrgb-install.sh" Mode="0770">
+<FILE Name="/boot/config/plugins/&name;/&bundle;">
+<URL>"https://github.com/SkippyTheLost/unraid-openrgb/releases/download/&version;/&bundle;"</URL>
+</FILE>
+
+<FILE Name="/boot/config/plugins/&name;/openrgb.cfg">
 <INLINE>
 <![CDATA[
-#!/bin/bash
-set -euo pipefail
-
-PLUGIN="openrgb"
-BOOT_DIR="/boot/config/plugins/${PLUGIN}"
-WEB_DIR="/usr/local/emhttp/plugins/${PLUGIN}"
-RC_SCRIPT="/etc/rc.d/rc.openrgb"
-DEFAULT_DOWNLOAD_URL="https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_candidate_1.0rc2/OpenRGB_1.0rc2_x86_64_0fca93e.AppImage"
-LOGO_URL="https://openrgb.org/OpenRGB%20White.d0101f04.webp"
-
-mkdir -p "${BOOT_DIR}" "${WEB_DIR}" "${WEB_DIR}/images"
-rm -f "${WEB_DIR}/OpenRGB.page"
-
-if [ ! -f "${BOOT_DIR}/openrgb.cfg" ]; then
-  cat > "${BOOT_DIR}/openrgb.cfg" <<'EOF'
 ENABLED="no"
 SERVER_PORT="6742"
 EXTRA_ARGS="--server"
 ENABLE_I2C="yes"
-LOG_LEVEL="info"
-EOF
-fi
-
-curl -fL --retry 3 --connect-timeout 20 -o "${WEB_DIR}/images/openrgb.webp.tmp" "${LOGO_URL}" \
-  && mv "${WEB_DIR}/images/openrgb.webp.tmp" "${WEB_DIR}/images/openrgb.webp" \
-  && cp "${WEB_DIR}/images/openrgb.webp" "${WEB_DIR}/openrgb.webp" \
-  || rm -f "${WEB_DIR}/images/openrgb.webp.tmp"
-
-cat > "${RC_SCRIPT}" <<'EOF'
-#!/bin/bash
-set -euo pipefail
-
-PLUGIN="openrgb"
-BOOT_DIR="/boot/config/plugins/${PLUGIN}"
-CFG="${BOOT_DIR}/openrgb.cfg"
-DEFAULT_DOWNLOAD_URL="https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_candidate_1.0rc2/OpenRGB_1.0rc2_x86_64_0fca93e.AppImage"
-APPIMAGE_CACHE="${BOOT_DIR}/openrgb.AppImage"
-RUNTIME_DIR="/usr/local/${PLUGIN}"
-APPIMAGE_RUN="${RUNTIME_DIR}/openrgb.AppImage"
-EXTRACT_DIR="${RUNTIME_DIR}/squashfs-root"
-BIN_LINK="/usr/local/sbin/openrgb"
-PIDFILE="/var/run/openrgb.pid"
-LOGFILE="/var/log/openrgb.log"
-
-ENABLED="no"
-SERVER_PORT="6742"
-EXTRA_ARGS="--server"
-ENABLE_I2C="yes"
-LOG_LEVEL="info"
-
-[ -f "${CFG}" ] && source "${CFG}"
-
-log() {
-  echo "openrgb: $*"
-}
-
-is_running() {
-  [ -f "${PIDFILE}" ] && kill -0 "$(cat "${PIDFILE}")" 2>/dev/null
-}
-
-load_devices() {
-  if [ "${ENABLE_I2C}" = "yes" ]; then
-    modprobe i2c-dev 2>/dev/null || true
-    modprobe i2c-piix4 2>/dev/null || true
-  fi
-
-  chmod a+rw /dev/i2c-* 2>/dev/null || true
-  chmod a+rw /dev/hidraw* 2>/dev/null || true
-  chmod a+rw /dev/usb/hiddev* 2>/dev/null || true
-}
-
-write_cfg() {
-  mkdir -p "${BOOT_DIR}"
-  cat > "${CFG}" <<EOF_CFG
-ENABLED="${ENABLED}"
-SERVER_PORT="${SERVER_PORT}"
-EXTRA_ARGS="${EXTRA_ARGS}"
-ENABLE_I2C="${ENABLE_I2C}"
-LOG_LEVEL="${LOG_LEVEL}"
-EOF_CFG
-}
-
-install_openrgb() {
-  mkdir -p "${BOOT_DIR}" "${RUNTIME_DIR}"
-
-  if [ ! -s "${APPIMAGE_CACHE}" ]; then
-    log "downloading OpenRGB AppImage"
-    curl -fL --retry 3 --connect-timeout 20 -o "${APPIMAGE_CACHE}.tmp" "${DEFAULT_DOWNLOAD_URL}"
-    mv "${APPIMAGE_CACHE}.tmp" "${APPIMAGE_CACHE}"
-    chmod 0644 "${APPIMAGE_CACHE}"
-  else
-    log "using cached OpenRGB AppImage"
-  fi
-
-  rm -rf "${EXTRACT_DIR}"
-  rm -f "${BIN_LINK}"
-  mkdir -p "${RUNTIME_DIR}"
-  cp "${APPIMAGE_CACHE}" "${APPIMAGE_RUN}"
-  chmod 0755 "${APPIMAGE_RUN}"
-
-  if (cd "${RUNTIME_DIR}" && "${APPIMAGE_RUN}" --appimage-extract >/tmp/openrgb-appimage-extract.log 2>&1); then
-    if [ ! -x "${EXTRACT_DIR}/AppRun" ]; then
-      log "AppImage extraction completed, but ${EXTRACT_DIR}/AppRun is missing"
-      return 1
-    fi
-    ln -sf "${EXTRACT_DIR}/AppRun" "${BIN_LINK}"
-    chmod 0755 "${EXTRACT_DIR}/AppRun"
-    log "installed extracted AppImage runtime"
-  else
-    log "failed to extract OpenRGB AppImage"
-    if [ -s /tmp/openrgb-appimage-extract.log ]; then
-      cat /tmp/openrgb-appimage-extract.log
-    fi
-    return 1
-  fi
-}
-
-start() {
-  if [ "${ENABLED}" != "yes" ]; then
-    log "disabled"
-    return 0
-  fi
-
-  if is_running; then
-    log "already running"
-    return 0
-  fi
-
-  if [ ! -x "${EXTRACT_DIR}/AppRun" ]; then
-    install_openrgb
-  fi
-
-  load_devices
-  : > "${LOGFILE}"
-
-  log "starting on port ${SERVER_PORT}"
-  export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
-  nohup "${BIN_LINK}" ${EXTRA_ARGS} --server-port "${SERVER_PORT}" >> "${LOGFILE}" 2>&1 &
-  echo $! > "${PIDFILE}"
-  sleep 1
-
-  if ! is_running; then
-    rm -f "${PIDFILE}"
-    log "failed to start; see ${LOGFILE}"
-    return 1
-  fi
-}
-
-stop() {
-  if is_running; then
-    log "stopping"
-    kill "$(cat "${PIDFILE}")" 2>/dev/null || true
-    for _ in 1 2 3 4 5; do
-      is_running || break
-      sleep 1
-    done
-    is_running && kill -9 "$(cat "${PIDFILE}")" 2>/dev/null || true
-  fi
-  rm -f "${PIDFILE}"
-}
-
-status() {
-  if is_running; then
-    echo "running pid $(cat "${PIDFILE}") on port ${SERVER_PORT}"
-  else
-    echo "stopped"
-  fi
-}
-
-case "${1:-status}" in
-  start)
-    start
-    ;;
-  stop)
-    stop
-    ;;
-  restart)
-    stop
-    start
-    ;;
-  status)
-    status
-    ;;
-  install)
-    install_openrgb
-    ;;
-  enable)
-    ENABLED="yes"
-    write_cfg
-    start
-    ;;
-  disable)
-    ENABLED="no"
-    write_cfg
-    stop
-    ;;
-  devices)
-    load_devices
-    ;;
-  *)
-    echo "Usage: $0 {start|stop|restart|status|install|enable|disable|devices}"
-    exit 2
-    ;;
-esac
-EOF
-chmod 0755 "${RC_SCRIPT}"
-
-cat > "${WEB_DIR}/OpenRGB.page" <<'EOF'
-Menu="Settings"
-Title="OpenRGB"
-Type="xmenu"
-Icon="openrgb.webp"
----
-<?php
-$cfgFile = '/boot/config/plugins/openrgb/openrgb.cfg';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  header('Content-Type: text/plain');
-
-  $cfgDir = dirname($cfgFile);
-  if (!is_dir($cfgDir)) {
-    mkdir($cfgDir, 0777, true);
-  }
-
-  $allowedEnabled = ['yes', 'no'];
-  $enabledPost = in_array($_POST['ENABLED'] ?? 'no', $allowedEnabled, true) ? $_POST['ENABLED'] : 'no';
-  $portPost = (int)($_POST['SERVER_PORT'] ?? 6742);
-  if ($portPost < 1 || $portPost > 65535) {
-    $portPost = 6742;
-  }
-
-  $extraArgsPost = trim($_POST['EXTRA_ARGS'] ?? '--server');
-  if ($extraArgsPost === '') {
-    $extraArgsPost = '--server';
-  }
-  $extraArgsPost = preg_replace('/[^A-Za-z0-9_ .:=,\/+-]/', '', $extraArgsPost);
-  $i2cPost = in_array($_POST['ENABLE_I2C'] ?? 'yes', $allowedEnabled, true) ? $_POST['ENABLE_I2C'] : 'yes';
-
-  $cfgPost = sprintf(
-    "ENABLED=\"%s\"\nSERVER_PORT=\"%d\"\nEXTRA_ARGS=\"%s\"\nENABLE_I2C=\"%s\"\nLOG_LEVEL=\"info\"\n",
-    $enabledPost,
-    $portPost,
-    addcslashes($extraArgsPost, "\\\""),
-    $i2cPost
-  );
-  file_put_contents($cfgFile, $cfgPost);
-
-  $actionPost = $_POST['action'] ?? 'Apply';
-  $commandsPost = [
-    'Apply' => '/etc/rc.d/rc.openrgb restart',
-    'Install/Update OpenRGB' => '/etc/rc.d/rc.openrgb install; /etc/rc.d/rc.openrgb restart',
-    'Start' => '/etc/rc.d/rc.openrgb start',
-    'Stop' => '/etc/rc.d/rc.openrgb stop',
-    'Restart' => '/etc/rc.d/rc.openrgb restart',
-  ];
-
-  $cmdPost = $commandsPost[$actionPost] ?? $commandsPost['Apply'];
-  echo "OpenRGB page version: 2026.06.25.4\n";
-  echo "OpenRGB action: {$actionPost}\n";
-  echo "Command: {$cmdPost}\n\n";
-  passthru($cmdPost . ' 2>&1', $exitCodePost);
-  echo "\nExit code: {$exitCodePost}\n";
-  exit($exitCodePost);
-}
-
-$cfg = file_exists($cfgFile) ? parse_ini_file($cfgFile) : [];
-$enabled = ($cfg['ENABLED'] ?? 'no') === 'yes';
-$port = htmlspecialchars($cfg['SERVER_PORT'] ?? '6742', ENT_QUOTES);
-$args = htmlspecialchars($cfg['EXTRA_ARGS'] ?? '--server', ENT_QUOTES);
-$i2c = ($cfg['ENABLE_I2C'] ?? 'yes') === 'yes';
-$status = trim(shell_exec('/etc/rc.d/rc.openrgb status 2>&1'));
-$csrf = htmlspecialchars($var['csrf_token'] ?? '', ENT_QUOTES);
-?>
-<div style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
-  <img src="/plugins/openrgb/images/openrgb.webp" alt="OpenRGB" style="height:48px;width:auto">
-  <div>
-    <h2 style="margin:0">OpenRGB</h2>
-    <p style="margin:4px 0 0">Run OpenRGB in server mode on Unraid. Plugin page version 2026.06.25.4.</p>
-  </div>
-</div>
-<form method="post" action="/Settings/OpenRGB" target="progressFrame">
-  <?php if ($csrf !== ''): ?>
-    <input type="hidden" name="csrf_token" value="<?= $csrf ?>">
-  <?php endif; ?>
-  <table class="settings">
-    <tr>
-      <td>Enable OpenRGB</td>
-      <td>
-        <select name="ENABLED">
-          <option value="yes" <?= $enabled ? 'selected' : '' ?>>Yes</option>
-          <option value="no" <?= !$enabled ? 'selected' : '' ?>>No</option>
-        </select>
-      </td>
-    </tr>
-    <tr>
-      <td>Server port</td>
-      <td><input type="number" name="SERVER_PORT" min="1" max="65535" value="<?= $port ?>"></td>
-    </tr>
-    <tr>
-      <td>Extra arguments</td>
-      <td><input type="text" name="EXTRA_ARGS" style="width: 32em" value="<?= $args ?>"></td>
-    </tr>
-    <tr>
-      <td>Enable i2c devices</td>
-      <td>
-        <select name="ENABLE_I2C">
-          <option value="yes" <?= $i2c ? 'selected' : '' ?>>Yes</option>
-          <option value="no" <?= !$i2c ? 'selected' : '' ?>>No</option>
-        </select>
-      </td>
-    </tr>
-    <tr>
-      <td>Status</td>
-      <td><code><?= htmlspecialchars($status, ENT_QUOTES) ?></code></td>
-    </tr>
-  </table>
-  <p>
-    <input type="submit" name="action" value="Apply">
-    <input type="submit" name="action" value="Install/Update OpenRGB">
-    <input type="submit" name="action" value="Start">
-    <input type="submit" name="action" value="Stop">
-    <input type="submit" name="action" value="Restart">
-  </p>
-</form>
-<iframe name="progressFrame" style="display:block;width:100%;height:220px;border:1px solid #ddd;background:#111;color:#eee"></iframe>
-EOF
-
-cat > "${WEB_DIR}/openrgb.php" <<'EOF'
-<?php
-header('Content-Type: text/plain');
-while (ob_get_level() > 0) {
-  ob_end_flush();
-}
-ob_implicit_flush(true);
-
-$cfgFile = '/boot/config/plugins/openrgb/openrgb.cfg';
-$cfgDir = dirname($cfgFile);
-if (!is_dir($cfgDir)) {
-  mkdir($cfgDir, 0777, true);
-}
-
-$allowedEnabled = ['yes', 'no'];
-
-$enabled = in_array($_POST['ENABLED'] ?? 'no', $allowedEnabled, true) ? $_POST['ENABLED'] : 'no';
-$port = (int)($_POST['SERVER_PORT'] ?? 6742);
-if ($port < 1 || $port > 65535) {
-  $port = 6742;
-}
-
-$extraArgs = trim($_POST['EXTRA_ARGS'] ?? '--server');
-if ($extraArgs === '') {
-  $extraArgs = '--server';
-}
-$extraArgs = preg_replace('/[^A-Za-z0-9_ .:=,\/+-]/', '', $extraArgs);
-
-$i2c = in_array($_POST['ENABLE_I2C'] ?? 'yes', $allowedEnabled, true) ? $_POST['ENABLE_I2C'] : 'yes';
-
-$cfg = sprintf(
-  "ENABLED=\"%s\"\nSERVER_PORT=\"%d\"\nEXTRA_ARGS=\"%s\"\nENABLE_I2C=\"%s\"\nLOG_LEVEL=\"info\"\n",
-  $enabled,
-  $port,
-  addcslashes($extraArgs, "\\\""),
-  $i2c
-);
-file_put_contents($cfgFile, $cfg);
-
-$action = $_POST['action'] ?? 'Apply';
-$commands = [
-  'Apply' => '/etc/rc.d/rc.openrgb restart',
-  'Install/Update OpenRGB' => '/etc/rc.d/rc.openrgb install; /etc/rc.d/rc.openrgb restart',
-  'Start' => '/etc/rc.d/rc.openrgb start',
-  'Stop' => '/etc/rc.d/rc.openrgb stop',
-  'Restart' => '/etc/rc.d/rc.openrgb restart',
-];
-
-$cmd = $commands[$action] ?? $commands['Apply'];
-echo "OpenRGB action: {$action}\n";
-echo "Command: {$cmd}\n\n";
-passthru($cmd . ' 2>&1', $exitCode);
-echo "\nExit code: {$exitCode}\n";
-exit($exitCode);
-EOF
-
-cat > "${WEB_DIR}/README.md" <<'EOF'
-# OpenRGB for Unraid
-
-This plugin runs OpenRGB in server mode on Unraid.
-
-OpenRGB is installed automatically from the bundled official AppImage URL.
-EOF
-
-if ! grep -q "rc.openrgb start" /boot/config/go 2>/dev/null; then
-  cat >> /boot/config/go <<'EOF'
-
-# Start OpenRGB plugin
-[ -x /etc/rc.d/rc.openrgb ] && /etc/rc.d/rc.openrgb start
-EOF
-fi
-
-/etc/rc.d/rc.openrgb install || echo "OpenRGB install failed during AppImage extraction. See the output above."
-
-echo "OpenRGB plugin installed. Configure it from /Settings/OpenRGB."
 ]]>
 </INLINE>
 </FILE>
 
 <FILE Run="/bin/bash">
 <INLINE>
-<![CDATA[
-bash /tmp/openrgb-install.sh
-rm -f /tmp/openrgb-install.sh
-]]>
+set -e
+PLUGIN_DIR=/usr/local/emhttp/plugins/&name;
+BUNDLE=/boot/config/plugins/&name;/&bundle;
+
+[ -s "$BUNDLE" ] || {
+  echo "Missing release bundle: $BUNDLE"
+  exit 1
+}
+
+was_running=0
+[ -x "$PLUGIN_DIR/scripts/openrgbctl" ] &amp;&amp; "$PLUGIN_DIR/scripts/openrgbctl" status 2&gt;/dev/null | grep -q '^running' &amp;&amp; was_running=1
+[ "$was_running" -eq 1 ] &amp;&amp; "$PLUGIN_DIR/scripts/openrgbctl" stop || true
+
+rm -rf "$PLUGIN_DIR"
+tar -xzf "$BUNDLE" -C /usr/local/emhttp/plugins
+chmod 755 "$PLUGIN_DIR/runtime/AppRun"
+chmod 755 "$PLUGIN_DIR/scripts/openrgbctl"
+chmod 755 "$PLUGIN_DIR/event/started"
+ln -sf "$PLUGIN_DIR/scripts/openrgbctl" /etc/rc.d/rc.openrgb
+cat &gt; /usr/local/bin/openrgb &lt;&lt;'EOF'
+#!/bin/bash
+exec /usr/local/emhttp/plugins/openrgb/runtime/AppRun "$@"
+EOF
+chmod 755 /usr/local/bin/openrgb
+
+sed -i '/# Start OpenRGB plugin/,+1d' /boot/config/go 2&gt;/dev/null || true
+rm -rf /usr/local/openrgb
+rm -f /usr/local/sbin/openrgb
+rm -f /boot/config/plugins/&name;/openrgb.AppImage
+
+ENABLED=no
+source /boot/config/plugins/&name;/openrgb.cfg
+if [ "$was_running" -eq 1 ] || [ "$ENABLED" = yes ]; then
+  "$PLUGIN_DIR/scripts/openrgbctl" start
+fi
+
+echo "OpenRGB &version; installed."
+"$PLUGIN_DIR/scripts/openrgbctl" version
 </INLINE>
 </FILE>
 
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
-<![CDATA[
-/etc/rc.d/rc.openrgb stop 2>/dev/null || true
-rm -rf /usr/local/emhttp/plugins/openrgb
-rm -rf /usr/local/openrgb
-rm -f /usr/local/sbin/openrgb
+PLUGIN_DIR=/usr/local/emhttp/plugins/&name;
+[ -x "$PLUGIN_DIR/scripts/openrgbctl" ] &amp;&amp; "$PLUGIN_DIR/scripts/openrgbctl" stop || true
 rm -f /etc/rc.d/rc.openrgb
-rm -f /var/run/openrgb.pid
-echo "OpenRGB plugin removed. Persistent config remains at /boot/config/plugins/openrgb."
-]]>
+rm -f /usr/local/bin/openrgb
+rm -rf "$PLUGIN_DIR"
+rm -f /boot/config/plugins/&name;/&name;-*.tgz
+echo "OpenRGB removed. Settings remain in /boot/config/plugins/&name;."
 </INLINE>
 </FILE>
 

@@ -1,19 +1,19 @@
 # Unraid OpenRGB Plugin
 
-This repository contains a single-file Unraid plugin that installs a small
-Settings page and runs OpenRGB in server mode.
+This repository contains an Unraid plugin that installs a bundled OpenRGB
+runtime and runs it in server mode.
 
 ## What it does
 
-- Adds `Settings > OpenRGB` in the Unraid web UI at `/Settings/OpenRGB`.
+- Adds `OpenRGB` under `Settings > User Utilities` at `/Settings/OpenRGB`.
 - Stores persistent settings in `/boot/config/plugins/openrgb/openrgb.cfg`.
 - Defaults to the latest official OpenRGB x86_64 Linux AppImage release URL.
-- Downloads and installs the official OpenRGB Linux AppImage during plugin install.
+- Installs a release bundle containing the extracted official OpenRGB runtime.
 - Uses the official OpenRGB logo for plugin branding.
 - Starts OpenRGB as a background server with `--server`.
 - Optionally loads `i2c-dev` and relaxes permissions for `/dev/i2c-*`,
   `/dev/hidraw*`, and `/dev/usb/hiddev*`.
-- Starts OpenRGB at boot from `/boot/config/go`.
+- Starts OpenRGB through Unraid's native `event/started` plugin hook.
 
 ## Install
 
@@ -23,8 +23,11 @@ Copy `openrgb.plg` to your Unraid server and install it:
 installplg /boot/config/plugins/openrgb.plg
 ```
 
-For distribution, update the `pluginURL` entity near the top of
-`openrgb.plg` to point at the raw URL for your hosted copy.
+The release plugin URL is:
+
+```text
+https://github.com/SkippyTheLost/unraid-openrgb/releases/latest/download/openrgb.plg
+```
 
 ## Configure
 
@@ -67,7 +70,27 @@ drivers, and device permissions. Some devices require i2c access, while others
 use hidraw. The plugin enables the common device paths, but OpenRGB support is
 still hardware-specific.
 
-The service script caches the AppImage on `/boot`, copies it to `/usr/local`,
-extracts it there, and runs the extracted `AppRun`. Direct AppImage execution
-is not used because Unraid systems commonly lack FUSE support for AppImages,
-and `/boot` may be mounted with `noexec`.
+The GitHub release workflow downloads and extracts the official AppImage while
+building `openrgb-<version>.tgz`. Unraid downloads that bundle and runs its
+included `AppRun`, so plugin installation does not require FUSE or AppImage
+extraction.
+
+## Build and release
+
+On Linux, build the release bundle with:
+
+```bash
+bash scripts/build-release.sh
+```
+
+The output is written to `dist/openrgb-2026.06.28.6.tgz`. To publish a release,
+ensure the version in `openrgb.plg`, both build scripts, and the workflow match,
+then push a tag with that exact version:
+
+```bash
+git tag 2026.06.28.6
+git push origin 2026.06.28.6
+```
+
+GitHub Actions publishes both `openrgb.plg` and the matching versioned bundle
+as release assets.

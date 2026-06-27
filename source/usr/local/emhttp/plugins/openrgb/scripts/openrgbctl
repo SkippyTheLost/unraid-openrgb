@@ -1,0 +1,105 @@
+#!/bin/bash
+set -euo pipefail
+
+PLUGIN_DIR=/usr/local/emhttp/plugins/openrgb
+CONFIG_DIR=/boot/config/plugins/openrgb
+CONFIG_FILE="$CONFIG_DIR/openrgb.cfg"
+APP_RUN="$PLUGIN_DIR/runtime/AppRun"
+PIDFILE=/var/run/openrgb.pid
+LOGFILE=/var/log/openrgb.log
+
+load_config() {
+  ENABLED=no
+  SERVER_PORT=6742
+  EXTRA_ARGS=--server
+  ENABLE_I2C=yes
+  [ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
+}
+
+is_running() {
+  [ -s "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null
+}
+
+load_devices() {
+  load_config
+  if [ "$ENABLE_I2C" = yes ]; then
+    modprobe i2c-dev 2>/dev/null || true
+    modprobe i2c-piix4 2>/dev/null || true
+  fi
+  chmod a+rw /dev/i2c-* /dev/hidraw* /dev/usb/hiddev* 2>/dev/null || true
+}
+
+require_runtime() {
+  if [ ! -x "$APP_RUN" ]; then
+    echo "openrgb: bundled runtime is missing from $PLUGIN_DIR/runtime"
+    return 1
+  fi
+}
+
+start_service() {
+  load_config
+  require_runtime || return 1
+  if is_running; then
+    echo "openrgb: already running pid $(cat "$PIDFILE")"
+    return 0
+  fi
+
+  load_devices
+  : > "$LOGFILE"
+  echo "openrgb: starting on port $SERVER_PORT"
+  QT_QPA_PLATFORM=offscreen nohup "$APP_RUN" $EXTRA_ARGS --server-port "$SERVER_PORT" >> "$LOGFILE" 2>&1 &
+  echo $! > "$PIDFILE"
+  sleep 2
+
+  if ! is_running; then
+    rm -f "$PIDFILE"
+    echo "openrgb: failed to start; recent log output follows"
+    tail -n 40 "$LOGFILE" 2>/dev/null || true
+    return 1
+  fi
+  echo "openrgb: started pid $(cat "$PIDFILE")"
+}
+
+stop_service() {
+  if is_running; then
+    echo "openrgb: stopping pid $(cat "$PIDFILE")"
+    kill "$(cat "$PIDFILE")" 2>/dev/null || true
+    for _ in 1 2 3 4 5; do
+      is_running || break
+      sleep 1
+    done
+    is_running && kill -9 "$(cat "$PIDFILE")" 2>/dev/null || true
+  fi
+  rm -f "$PIDFILE"
+}
+
+case "${1:-status}" in
+  start)
+    start_service
+    ;;
+  stop)
+    stop_service
+    ;;
+  restart)
+    stop_service
+    start_service
+    ;;
+  status)
+    load_config
+    if is_running; then
+      echo "running pid $(cat "$PIDFILE") on port $SERVER_PORT"
+    else
+      echo "stopped"
+    fi
+    ;;
+  devices)
+    load_devices
+    ;;
+  version)
+    require_runtime && "$APP_RUN" --version 2>&1 | head -n 1
+    ;;
+  *)
+    echo "Usage: $0 {start|stop|restart|status|devices|version}"
+    exit 2
+    ;;
+esac

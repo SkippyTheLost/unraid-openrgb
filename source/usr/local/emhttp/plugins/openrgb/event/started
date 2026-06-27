@@ -1,0 +1,5 @@
+#!/bin/bash
+CONFIG_FILE=/boot/config/plugins/openrgb/openrgb.cfg
+ENABLED=no
+[ -f "$CONFIG_FILE" ] && source "$CONFIG_FILE"
+[ "$ENABLED" = yes ] && /usr/local/emhttp/plugins/openrgb/scripts/openrgbctl start || true
