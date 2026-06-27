@@ -17,7 +17,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends curl ca-certificates
       - name: Build OpenRGB bundle
         env:
-          VERSION: 2026.06.28.6
+          VERSION: 2026.06.28.8
         run: bash scripts/build-release.sh
       - uses: actions/upload-artifact@v4
         with:

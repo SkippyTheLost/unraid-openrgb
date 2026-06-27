@@ -83,13 +83,13 @@ On Linux, build the release bundle with:
 bash scripts/build-release.sh
 ```
 
-The output is written to `dist/openrgb-2026.06.28.6.tgz`. To publish a release,
+The output is written to `dist/openrgb-2026.06.28.8.tgz`. To publish a release,
 ensure the version in `openrgb.plg`, both build scripts, and the workflow match,
 then push a tag with that exact version:
 
 ```bash
-git tag 2026.06.28.6
-git push origin 2026.06.28.6
+git tag 2026.06.28.8
+git push origin 2026.06.28.8
 ```
 
 GitHub Actions publishes both `openrgb.plg` and the matching versioned bundle

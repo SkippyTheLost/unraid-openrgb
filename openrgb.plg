@@ -2,15 +2,23 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "openrgb">
 <!ENTITY author    "SkippyTheLost">
-<!ENTITY version   "2026.06.28.6">
+<!ENTITY version   "2026.06.28.8">
 <!ENTITY launch    "Settings/OpenRGB">
 <!ENTITY pluginURL "https://github.com/SkippyTheLost/unraid-openrgb/releases/latest/download/&name;.plg">
 <!ENTITY bundle    "&name;-&version;.tgz">
 ]>
 
-<PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;" pluginURL="&pluginURL;" icon="https://openrgb.org/OpenRGB%20White.d0101f04.webp" support="https://github.com/SkippyTheLost/unraid-openrgb/issues">
+<PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;" pluginURL="&pluginURL;" icon="https://gitlab.com/CalcProgrammer1/OpenRGB/-/raw/master/qt/OpenRGB.png" support="https://github.com/SkippyTheLost/unraid-openrgb/issues">
 
 <CHANGES>
+### 2026.06.28.8
+- Make the installed openrgb command safe on headless Unraid systems.
+- Report service status when openrgb is run without CLI arguments.
+- Run OpenRGB CLI commands with Qt's offscreen platform to avoid xcb display errors.
+
+### 2026.06.28.7
+- Use OpenRGB's official PNG application icon throughout the Unraid webGUI.
+
 ### 2026.06.28.6
 - Install OpenRGB and the plugin web files from a versioned release bundle.
 - Package the extracted OpenRGB runtime so Unraid does not need FUSE or AppImage extraction.
@@ -74,7 +82,16 @@ chmod 755 "$PLUGIN_DIR/event/started"
 ln -sf "$PLUGIN_DIR/scripts/openrgbctl" /etc/rc.d/rc.openrgb
 cat &gt; /usr/local/bin/openrgb &lt;&lt;'EOF'
 #!/bin/bash
-exec /usr/local/emhttp/plugins/openrgb/runtime/AppRun "$@"
+CONTROL=/usr/local/emhttp/plugins/openrgb/scripts/openrgbctl
+APP_RUN=/usr/local/emhttp/plugins/openrgb/runtime/AppRun
+if [ "$#" -eq 0 ]; then
+  "$CONTROL" status
+  echo "OpenRGB's graphical interface requires an X11 display and is not available in the Unraid terminal."
+  echo "Use OpenRGB CLI options such as: openrgb --list-devices"
+  exit 0
+fi
+export QT_QPA_PLATFORM="${QT_QPA_PLATFORM:-offscreen}"
+exec "$APP_RUN" "$@"
 EOF
 chmod 755 /usr/local/bin/openrgb
 

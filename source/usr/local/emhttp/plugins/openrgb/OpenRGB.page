@@ -1,6 +1,6 @@
 Menu="Utilities"
 Title="OpenRGB"
-Icon="openrgb.webp"
+Icon="openrgb.png"
 ---
 <?php
 $cfg = parse_plugin_cfg('openrgb');
@@ -14,7 +14,7 @@ $version = trim((string) @file_get_contents('/usr/local/emhttp/plugins/openrgb/V
 ?>
 
 <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px">
-  <img src="/plugins/openrgb/images/openrgb.webp" alt="OpenRGB" style="height:48px;width:auto">
+  <img src="/plugins/openrgb/images/openrgb.png" alt="OpenRGB" style="height:48px;width:auto">
   <div>
     <h2 style="margin:0">OpenRGB</h2>
     <p style="margin:4px 0 0">Plugin version <?=htmlspecialchars($version)?>. Status: <strong id="openrgbStatus"><?=htmlspecialchars($status)?></strong></p>

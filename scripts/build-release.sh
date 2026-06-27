@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-VERSION=${VERSION:-2026.06.28.6}
+VERSION=${VERSION:-2026.06.28.8}
 APPIMAGE_URL=${APPIMAGE_URL:-https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_candidate_1.0rc2/OpenRGB_1.0rc2_x86_64_0fca93e.AppImage}
-LOGO_URL=${LOGO_URL:-https://openrgb.org/OpenRGB%20White.d0101f04.webp}
+LOGO_URL=${LOGO_URL:-https://gitlab.com/CalcProgrammer1/OpenRGB/-/raw/master/qt/OpenRGB.png}
 STAGE="$ROOT/.build/openrgb"
 DIST="$ROOT/dist"
 APPIMAGE="$ROOT/.build/openrgb.AppImage"
@@ -27,8 +27,8 @@ chmod 755 "$APPIMAGE"
 )
 mv "$ROOT/.build/squashfs-root" "$STAGE/runtime"
 
-curl -fL --retry 3 --connect-timeout 20 -o "$STAGE/images/openrgb.webp" "$LOGO_URL"
-cp "$STAGE/images/openrgb.webp" "$STAGE/openrgb.webp"
+curl -fL --retry 3 --connect-timeout 20 -o "$STAGE/images/openrgb.png" "$LOGO_URL"
+cp "$STAGE/images/openrgb.png" "$STAGE/openrgb.png"
 chmod 755 "$STAGE/runtime/AppRun" "$STAGE/scripts/openrgbctl" "$STAGE/event/started"
 printf '%s\n' "$VERSION" > "$STAGE/VERSION"
 
