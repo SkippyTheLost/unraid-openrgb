@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $PSScriptRoot
-$version = "2026.06.28.8"
+$version = "2026.06.28.9"
 $stage = Join-Path $root ".build\openrgb"
 $runtime = Join-Path $stage "runtime\AppRun"
 $dist = Join-Path $root "dist"

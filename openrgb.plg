@@ -2,15 +2,18 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "openrgb">
 <!ENTITY author    "SkippyTheLost">
-<!ENTITY version   "2026.06.28.8">
+<!ENTITY version   "2026.06.28.9">
 <!ENTITY launch    "Settings/OpenRGB">
 <!ENTITY pluginURL "https://github.com/SkippyTheLost/unraid-openrgb/releases/latest/download/&name;.plg">
 <!ENTITY bundle    "&name;-&version;.tgz">
 ]>
 
-<PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;" pluginURL="&pluginURL;" icon="https://gitlab.com/CalcProgrammer1/OpenRGB/-/raw/master/qt/OpenRGB.png" support="https://github.com/SkippyTheLost/unraid-openrgb/issues">
+<PLUGIN name="&name;" author="&author;" version="&version;" launch="&launch;" pluginURL="&pluginURL;" icon="https://raw.githubusercontent.com/CalcProgrammer1/OpenRGB/master/qt/org.openrgb.OpenRGB.png" support="https://github.com/SkippyTheLost/unraid-openrgb/issues">
 
 <CHANGES>
+### 2026.06.28.9
+- Fix the upstream URL for OpenRGB's official PNG application icon.
+
 ### 2026.06.28.8
 - Make the installed openrgb command safe on headless Unraid systems.
 - Report service status when openrgb is run without CLI arguments.

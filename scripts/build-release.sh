@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
-VERSION=${VERSION:-2026.06.28.8}
+VERSION=${VERSION:-2026.06.28.9}
 APPIMAGE_URL=${APPIMAGE_URL:-https://codeberg.org/OpenRGB/OpenRGB/releases/download/release_candidate_1.0rc2/OpenRGB_1.0rc2_x86_64_0fca93e.AppImage}
-LOGO_URL=${LOGO_URL:-https://gitlab.com/CalcProgrammer1/OpenRGB/-/raw/master/qt/OpenRGB.png}
+LOGO_URL=${LOGO_URL:-https://raw.githubusercontent.com/CalcProgrammer1/OpenRGB/master/qt/org.openrgb.OpenRGB.png}
 STAGE="$ROOT/.build/openrgb"
 DIST="$ROOT/dist"
 APPIMAGE="$ROOT/.build/openrgb.AppImage"
